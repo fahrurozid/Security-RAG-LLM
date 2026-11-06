@@ -1,0 +1,45 @@
+# Environment etc
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets/
+credentials/
+
+# Python environment
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Dependency wheelhouse
+wheelhouse/
+
+# Runtime data and test alerts
+data/alerts/
+data/reports/
+data/normalized/
+backup/
+tests/
+
+# Large framework datasets
+data/frameworks/
+
+# Logs
+*.log
+logs/
+
+# Local database and backups
+*.dump
+*.sql.gz
+*.backup
+
+# IDE and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

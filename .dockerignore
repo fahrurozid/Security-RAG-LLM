@@ -1,0 +1,113 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+
+.env
+.env.*
+
+data/raw/
+data/processed/
+data/cache/
+data/reports/
+
+*.gguf
+*.safetensors
+*.bin
+```
+
+This prevents your virtual environment, local secrets, large datasets, and model files from being included in the Docker build context.
+
+Your PostgreSQL and Neo4j data should remain in their Docker volumes, not in the application image.
+
+## 5. Corrected Docker Compose configuration
+
+For your current infrastructure, I would use the following configuration.
+
+<CodeBlock language="yaml" editable>
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: cyber-rag-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: cyber_rag
+      POSTGRES_USER: raguser
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - cyber_rag_pgdata:/var/lib/postgresql/data
+      - ./docker/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raguser -d cyber_rag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5
+    container_name: cyber-rag-neo4j
+    restart: unless-stopped
+
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env}
+
+    ports:
+      - "7475:7474"
+      - "7688:7687"
+
+    volumes:
+      - cyber_rag_neo4j_data:/data
+      - cyber_rag_neo4j_logs:/logs
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+
+    container_name: cyber-rag-app
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    network_mode: host
+
+    environment:
+      LLM_STREAM_HOST: "0.0.0.0"
+      LLM_STREAM_PORT: "17772"
+      LLM_STREAM_PATH: "/stream"
+
+      OLLAMA_BASE_URL: "http://127.0.0.1:11434"
+      EMBEDDING_BASE_URL: "http://127.0.0.1:11434"
+
+      ALERT_STREAM_URL: "http://103.252.50.212:17771/"
+      ALERT_POLL_INTERVAL: "5"
+
+      DATABASE_URL: ${DATABASE_URL}
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USER: ${NEO4J_USER}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_started
+
+    volumes:
+      - ./data/reports:/app/data/reports
+
+volumes:
+  cyber_rag_pgdata:
+  cyber_rag_neo4j_data:
+  cyber_rag_neo4j_logs:

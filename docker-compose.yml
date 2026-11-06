@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: cyber-rag-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cyber_rag
+      POSTGRES_USER: raguser
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "5433:5432"
+    volumes:
+      - cyber_rag_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raguser -d cyber_rag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5
+    container_name: cyber-rag-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env}
+    ports:
+      - "7475:7474"
+      - "7688:7687"
+    volumes:
+      - cyber_rag_neo4j_data:/data
+      - cyber_rag_neo4j_logs:/logs
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: cyber-rag-app
+    restart: unless-stopped
+    env_file:
+      - .env
+
+    network_mode: host
+
+volumes:
+  cyber_rag_pgdata:
+  cyber_rag_neo4j_data:
+  cyber_rag_neo4j_logs:
